@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>手撕Promise</title>
+  <script type="text/javascript">
+    const  PENDING = 'pending'
+    const  FULFILLED = 'fulfilled'
+    const  REJECTED = 'rejected'
+    function myPromise(fn){
+      this.promiseState = PENDING
+      this.promiseResult = undefined
+      //定义一个回调函数,用来标识成功
+      this.thenCallBack = undefined
+      //定义一个回调函数,用来标识失败
+      this.errorCallBack = undefined
+      let _this = this
+      let resolve = function(sucValue){
+       
+        if(_this.promiseState===PENDING){         
+          _this.promiseState = FULFILLED
+          _this.promiseResult = sucValue
+         //console.log(_this)
+          if(sucValue instanceof myPromise){
+            sucValue.then(function(res){
+              if(_this.thenCallBack){
+              _this.thenCallBack(res)
+              }
+            })
+          }else{
+            setTimeout(function(){
+              if(_this.thenCallBack){
+              _this.thenCallBack(sucValue)
+              }
+            })
+          }
+        }
+      }
+      
+      let reject = function(errValue){
+        if(_this.promiseState===PENDING){
+          _this.promiseState = REJECTED
+          _this.promiseResult = errValue
+          setTimeout(function(){
+          //console.log('errValue==',errValue,_this)
+            if(_this.errorCallBack){            
+              _this.errorCallBack(errValue)
+            }else if(_this.thenCallBack){
+              _this.thenCallBack(errValue)
+            }
+            else{
+              throw('catch is not defined')
+            }
+          })
+        }
+      }
+      if(fn && typeof fn ==='function'){
+        fn(resolve,reject)
+      }else{
+        throw('Init Error,Please use a function to init MyPromise!')
+      }
+    }
+    myPromise.prototype.then = function (callback){     
+      let _this = this
+      return new myPromise(function(resolve,reject){
+        //console.log('then--',_this)       
+        //因为在使用链式调用的时候可能第一个调用的不是catch
+        //所以我们在做检测时会借助then来将catch信息向下传递
+        //所以我们在检测时触发thenCallBack的对象是reject时，我们就继续调用下一个对象的reject
+          _this.thenCallBack = function(value){
+            //console.log(_this,value)    
+            if(_this.promiseState===REJECTED){
+               reject(value)
+             }
+             else{                              
+                let res = callback(value)
+                //console.log(res)
+                if(res instanceof myPromise && res.promiseState===REJECTED){
+                  res.catch(function(errValue){
+                    reject(errValue)
+                  })
+                }else{
+                  resolve(res)          
+                }
+            }
+         }
+      })
+    }
+    myPromise.prototype.catch = function (callback){     
+      let _this = this    
+      return new myPromise(function(resolve,reject){
+        console.log('catch--',_this)
+        _this.errorCallBack = function(value){
+          let res = callback(value)
+          resolve(res)
+         }
+      })
+    }
+    myPromise.resolve = function(value){
+      return new myPromise(function(resolve,reject){
+        resolve(value)
+      })
+    }
+    myPromise.reject = function(value){
+      return new myPromise(function(resolve,reject){
+        reject(value)
+      })
+    }
+    myPromise.all = function(promiseArr){     
+      var _arr =[]  
+      return new myPromise(function(resolve,reject){
+        //方式1：纯es6语法实现（对浏览器有要求）
+        // promiseArr.forEach((item,idx)=>{
+        //   console.log('arr:',_arr)
+        //   item.then(function(res){
+        //     _arr[idx] = res
+        //     let allFlag = promiseArr.every(function(_item){
+        //       return _item.promiseState === FULFILLED
+        //     })
+        //     if(allFlag){
+        //       resolve(_arr)
+        //     }            
+        //   }).catch(function(err){
+        //     reject(err)
+        //   })
+        // }) 
+        var _sum =0        
+        //方式2：es5语法实现（各种浏览器都可以）
+        for(var w=0,len=promiseArr.length;w<len;w++){
+          (function(i){
+          var _promise = promiseArr[i]
+              _promise.then(function(res){
+                _arr[i] = res
+                  if(_promise.promiseState===FULFILLED){
+                    _sum++
+                  }  
+                  if(_sum>=3){
+                    resolve(_arr)
+                  }            
+              }).catch(function(err){
+                reject(err)
+              })
+          })(w)      
+        }
+      })
+    }
+    myPromise.race = function(promiseArr){
+      return new myPromise(function(resolve,reject){
+        //方式1：纯es6语法实现（对浏览器有要求）
+        // promiseArr.forEach(item=>{
+        //   item.then(res=>{
+        //     resolve(res)
+        //   }).catch(err=>{
+        //     reject(err)
+        //   })
+        // })
+        //方式2：es5语法实现（支持各种浏览器）
+        for(var w=0,len=promiseArr.length;w<len;w++){
+          (function(i){
+            var _promise = promiseArr[i]
+            _promise.then(function(res){
+              resolve(res)
+            }).catch(function(err){
+              reject(err)
+            })
+          })(w)
+        }
+      })
+    }
+    
+    let p1 = new myPromise(function(resolve,reject){
+      setTimeout(function(){resolve('第一个promise')},1000)
+    })
+    let p2 = new myPromise(function(resolve,reject){
+      setTimeout(function(){reject('第二个promise')},2000)
+    })
+    let p3 = new myPromise(function(resolve,reject){
+      setTimeout(function(){reject('第三个promise')},50)
+    })
+    // myPromise.all([p1,p3,p2]).then(function(res){
+    //   console.log(res)
+    // }).catch(res=>{
+    //   console.log(res)
+    // })
+
+    myPromise.race([p1,p3,p2]).then(function(res){
+      console.log(res)
+    }).catch(function(err){
+      console.error(err)
+    })
+    // let p1 = new myPromise(function(resolve,reject){
+    //   //setTimeout(function(){
+    //    //resolve(myPromise.resolve(1))
+    //    //setTimeout(function(){
+    //     resolve(1)
+    //     //reject('错误的值')
+    //    //},1000)
+    //   //},2000)
+    //   //return myPromise.resolve(1)
+    // })
+    // console.log(p1)    
+    // p1.then(function(res){
+    //   console.log(res)
+    //   console.log('第一个then')
+    //   return 123
+    // }).then(function(res){
+    //   console.log(res)
+    //   console.log('第二个then')
+    //   return myPromise.reject('中断他')
+    // })
+    // .catch(function(res){
+    //   console.log(res)
+    //   console.log('catch执行')
+    // })
+  </script>
+</head>
+<body>
+  
+</body>
+</html>

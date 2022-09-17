@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generator-Test</title>
+  <script type="text/javascript">
+    /**
+    fn:Generator函数
+    */
+    function generatorFunctionRunner(fn){
+      let _generator = fn()
+      let _step = _generator.next()
+      function loop(step,generator){
+        if(step.value instanceof Promise){
+          step.value.then(function(permiseValue){
+            if(step.done===false){
+              loop(generator.next(permiseValue),generator)
+            }
+          })          
+        }else{
+          if(step.done===false){
+            loop(generator.next(),generator)
+          }
+        }
+        
+      }
+      loop(_step,_generator)
+    }
+    function * test(){
+      let p1 =yield new Promise(function(resolve,reject){
+        setTimeout(function(){
+          resolve('第一秒运行')
+        },1000)
+      })
+      console.log(p1)
+      let p2 =yield new Promise(function(resolve,reject){
+        setTimeout(function(){
+          resolve('第二秒运行')
+        },1000)
+      })
+      console.log(p2)
+      let p3 =yield new Promise(function(resolve,reject){
+        setTimeout(function(){
+          resolve('第三秒运行')
+        },1000)
+      })
+      console.log(p3)
+    }
+    generatorFunctionRunner(test)
+  </script>
+</head>
+<body>
+  
+</body>
+</html>

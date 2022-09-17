@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generator-Test</title>
+  <script type="text/javascript">
+    function * test(){     
+      let a = yield 1;
+      console.log(a)
+      let b = yield setTimeout(function(){return 123},1000);
+      console.log(b)
+      let c = yield new Promise(function(resolve,reject){resolve(456)});
+      console.log(c.then(res=>console.log(res)))
+      let d = yield new Promise(function(resolve,reject){
+        setTimeout(function(){resolve(789)},1000)
+      });
+      console.log(d)
+    }
+    let generator = test()
+    console.log('generator:',generator)
+     let step1 = generator.next()
+     console.log('step1:',step1)
+     let step2 = generator.next(step1.value)
+      console.log('step2:',step2)
+      let step3 = generator.next(step2.value)
+      console.log('step3:',step3)
+     let step4 = generator.next(step3.value)
+      console.log('step4:',step4)
+    //  let step5 = generator.next(step4.value)
+    //  console.log('step5:',step5)
+
+/*根据调⽤情况我们可以⾃⾏测试，会发现输出结果时并没有任何的延迟，并且我们观察打印输出会发现普通变量可
+以直接在value中拿到， setTimeout位置我们拿到的值和回调函数内部的值完全不⼀样，⽽Promise对象我们可以
+拿到它本身*/
+  </script>
+</head>
+<body>
+  
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>手撕Promise——自己实现</title>
+  <script type="text/javascript">
+    var promiseStateEnum = {
+        PENDING : "pending",
+        FULFILLED : "fulfilled",
+        REJECTED : "rejected"
+    }
+    function MyPromise(fn){
+      this.PromiseState = promiseStateEnum.PENDING
+      this.PromiseResult = undefined
+      //定义一个回调函数，用来临放resolve回调信息
+      this.thenCallback = undefined
+       //定义一个回调函数，用来临放reject回调信息
+       this.catchCallback = undefined
+      var _this = this
+      var resolve = function(sucValue){
+        if(_this.PromiseState === promiseStateEnum.PENDING){
+          _this.PromiseState = promiseStateEnum.FULFILLED
+          _this.PromiseResult = sucValue
+          if(sucValue instanceof MyPromise){
+            sucValue.then(function(res){
+              if(_this.thenCallback){
+                _this.thenCallback(res)
+              }
+            })
+          }else{
+            setTimeout(function(){
+              //console.log('异步：',_this)
+              if(_this.thenCallback){
+                _this.thenCallback(sucValue)
+              }
+            })
+          }
+        }
+      }
+      var reject = function(errValue){
+        if(_this.PromiseState === promiseStateEnum.PENDING){
+          _this.PromiseState = promiseStateEnum.REJECTED
+          _this.PromiseResult = errValue
+          //console.log('reject===',_this,errValue)
+          setTimeout(function(){
+            console.log('_this==',_this)
+            if(_this.catchCallback){
+              _this.catchCallback(errValue)
+            }else if(_this.thenCallback){
+              _this.thenCallback(errValue)
+            }else{
+              throw('this Promise was reject,but can not found catch!')
+            }
+          })
+        }
+      }
+      if(fn && typeof fn === 'function'){
+        fn(resolve,reject)
+      }else{
+        throw('Init Error,Please use a function to init MyPromise!')
+      }
+    }
+    MyPromise.prototype.then = function(callback){
+      var _this = this
+      //实现链式调⽤并且每个节点的状态是未知的所以每次都需要返回⼀个新的Proimse对象
+      return new MyPromise(function(resolve,reject){
+        //then第⼀次执⾏时注册回调函数到当前的Promise对象
+        _this.thenCallback = function(value){
+          //判断如果进⼊该回调时Promise的状态为rejected那么就直接触发后续Promise的catchCallback
+          //直到找到catch
+          if(_this.PromiseState === promiseStateEnum.REJECTED){
+            //console.log('我执行了吗',value,_this)
+            reject(value)
+          }else{
+            var callbackRes = callback(value)
+            //console.log('then--res::',callbackRes,value)
+            if(callbackRes instanceof MyPromise && callbackRes.PromiseState === promiseStateEnum.REJECTED){              
+              callbackRes.catch(function(err){
+                reject(err)
+              })
+            }else{
+             resolve(callbackRes)
+            }
+          }
+        }
+      })      
+    }
+    MyPromise.prototype.catch = function(callback){
+      var _this = this
+      return new MyPromise(function(resolve,reject){
+        _this.catchCallback = function(value){
+          var res = callback(value)
+          resolve(res)
+        }
+      })
+      
+    }
+    MyPromise.resolve = function(value){
+      return new MyPromise(function(resolve,reject){
+        resolve(value)
+      })
+    }
+    MyPromise.reject = function(value){
+      return new MyPromise(function(resolve,reject){
+        reject(value)
+      })
+    }
+    MyPromise.all = function(promiseArr){     
+      return new MyPromise(function(resolve,reject){
+        var _promiseArr = []
+        var _sum = 0
+        for(var aa = 0,len = promiseArr.length; aa<len; aa++){
+          (function(i){
+            var _promise = promiseArr[i]
+            _promise.then(function(res){
+              _promiseArr[i] = res
+              if(_promise.PromiseState === promiseStateEnum.FULFILLED){
+                _sum++
+              }
+              if(_sum>2){
+                resolve(_promiseArr)
+              }
+            }).catch(function(err){
+              reject(err)
+            })
+          })(aa)
+        }
+      })
+    }
+    MyPromise.race = function(promiseArr){
+      return new MyPromise(function(resolve,reject){
+        for(var aa = 0,len = promiseArr.length; aa<len; aa++){
+          (function(i){
+            var _promise = promiseArr[i]
+            _promise.then(function(res){
+              resolve(res)
+            }).catch(function(err){
+              reject(err)
+            })
+          })(aa)
+        }
+      })
+    }
+    // var p = new MyPromise(function(resolve,reject){
+    //   //setTimeout(function(){resolve(100)})
+    //   reject('错误')
+    // })
+    // .then(function(res){
+    //   console.log(res)
+    //   console.log('第一个then执行了')
+    //   return 123
+    // })
+    // .then(function(res){
+    //   console.log(res)
+    //   console.log('第二个then执行了')
+    //   return MyPromise.reject('我中断了')
+    // }).then(function(res){
+    //   console.log(res)
+    //   console.log('第三个then执行了')   
+    //   return 3333   
+    // })
+    // .catch(function(res){
+    //   console.error(res)
+    // })
+
+    var p1 = new MyPromise(function(resolve,reject){
+      setTimeout(function(){resolve('第一个promise')},1000)
+    })
+    var p2 = new MyPromise(function(resolve,reject){
+      setTimeout(function(){resolve('第二个promise')},2000)
+    })
+    var p3 = new MyPromise(function(resolve,reject){
+      setTimeout(function(){resolve('第三个promise')},50)
+    })
+    MyPromise.all([p1,p3,p2]).then(function(res){
+      console.log(res)
+    }).catch(function(res){
+      console.error(res)
+    })
+    // MyPromise.race([p1,p3,p2]).then(function(res){
+    //   console.log(res)
+    // }).catch(function(res){
+    //   console.error(res)
+    // })
+
+  </script>
+</head>
+<body>
+  
+</body>
+</html>

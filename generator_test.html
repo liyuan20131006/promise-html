@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generator-Test</title>
+  <script type="text/javascript">
+    function * test(){
+      console.log(1)
+      let a = yield 1;
+      console.log(a)
+      let b = yield 2;
+      console.log(b)
+      let c = a+b;
+      console.log(c)
+
+    }
+    let generator = test()
+    console.log('generator:',generator)
+     let step1 = generator.next()
+     console.log('step1:',step1)
+     let step2 = generator.next(step1.value)
+     console.log('step2:',step2)
+     let step3 = generator.next(step2.value)
+  </script>
+</head>
+<body>
+  
+</body>
+</html>
